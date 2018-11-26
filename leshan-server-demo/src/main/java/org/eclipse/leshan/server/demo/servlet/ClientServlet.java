@@ -32,6 +32,7 @@ import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.node.codec.CodecException;
+import org.eclipse.leshan.core.attributes.AttributeSet;
 import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.request.CreateRequest;
 import org.eclipse.leshan.core.request.DeleteRequest;
@@ -39,6 +40,7 @@ import org.eclipse.leshan.core.request.DiscoverRequest;
 import org.eclipse.leshan.core.request.ExecuteRequest;
 import org.eclipse.leshan.core.request.ObserveRequest;
 import org.eclipse.leshan.core.request.ReadRequest;
+import org.eclipse.leshan.core.request.WriteAttributesRequest;
 import org.eclipse.leshan.core.request.WriteRequest;
 import org.eclipse.leshan.core.request.WriteRequest.Mode;
 import org.eclipse.leshan.core.request.exception.ClientSleepingException;
@@ -53,6 +55,7 @@ import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
+import org.eclipse.leshan.core.response.WriteAttributesResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.server.LwM2mServer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
@@ -223,6 +226,29 @@ public class ClientServlet extends HttpServlet {
         // at least /endpoint/objectId/instanceId
         if (path.length < 3) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid path");
+            return;
+        }
+
+        // /clients/endPoint/LWRequest/observe : do LightWeight M2M observe request on a
+        // given client.
+        if (path.length >= 3 && "attributes".equals(path[path.length - 1])) {
+            try {
+                String target = StringUtils.substringBetween(req.getPathInfo(), clientEndpoint, "/attributes");
+                String query = req.getQueryString();
+                AttributeSet attributes = AttributeSet.parse(query);
+
+                Registration registration = server.getRegistrationService().getByEndpoint(clientEndpoint);
+                if (registration != null) {
+                    WriteAttributesRequest request = new WriteAttributesRequest(target, attributes);
+                    WriteAttributesResponse cResponse = server.send(registration, request, TIMEOUT);
+                    processDeviceResponse(req, resp, cResponse);
+                } else {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().format("no registered client with id '%s'", clientEndpoint).flush();
+                }
+            } catch (RuntimeException | InterruptedException e) {
+                handleException(e, resp);
+            }
             return;
         }
 
