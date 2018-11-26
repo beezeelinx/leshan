@@ -79,7 +79,7 @@ public class ClientServlet extends HttpServlet {
 
     private static final Logger LOG = LoggerFactory.getLogger(ClientServlet.class);
 
-    private static final long TIMEOUT = 5000; // ms
+    private static final long TIMEOUT = 10000; // ms
 
     private static final long serialVersionUID = 1L;
 
