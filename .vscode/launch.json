@@ -1,0 +1,91 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Debug (Launch)",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopOnEntry": false,
+            "mainClass": "",
+            "args": ""
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-LeshanBootstrapServerDemo<leshan-bsserver-demo>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopOnEntry": false,
+            "mainClass": "org.eclipse.leshan.server.bootstrap.demo.LeshanBootstrapServerDemo",
+            "args": "",
+            "projectName": "leshan-bsserver-demo"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-LeshanClientDemo<leshan-client-demo>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopOnEntry": false,
+            "mainClass": "org.eclipse.leshan.client.demo.LeshanClientDemo",
+            "args": "",
+            "projectName": "leshan-client-demo"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Ddf2JsonGenerator<leshan-core>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopOnEntry": false,
+            "mainClass": "org.eclipse.leshan.core.model.Ddf2JsonGenerator",
+            "args": "",
+            "projectName": "leshan-core"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-DdfList2JsonGenerator<leshan-core>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopOnEntry": false,
+            "mainClass": "org.eclipse.leshan.core.model.DdfList2JsonGenerator",
+            "args": "",
+            "projectName": "leshan-core"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-LeshanClusterServer<leshan-server-cluster>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopOnEntry": false,
+            "mainClass": "org.eclipse.leshan.server.cluster.LeshanClusterServer",
+            "args": "",
+            "projectName": "leshan-server-cluster"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-LeshanServerDemo<leshan-server-demo>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopOnEntry": false,
+            "mainClass": "org.eclipse.leshan.server.demo.LeshanServerDemo",
+            "args": "-wp 8383 -m ../models",
+            "projectName": "leshan-server-demo"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Attach)",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": "<debug port of remote debuggee>"
+        }
+    ]
+}
