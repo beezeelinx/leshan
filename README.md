@@ -27,10 +27,10 @@ Test Server Sandbox
 
 You can try live our servers demos instances:
 
-* The **lwm2m server** at https://leshan.eclipse.org/  
-   _(coap://leshan.eclipse.org:5683  and coaps://leshan.eclipse.org:5684)_  
-* The **bootstrap server** at https://leshan.eclipse.org/bs/  
-   _(coap://leshan.eclipse.org:5783  and coaps://leshan.eclipse.org:5784)_  
+* The **lwm2m server** at https://leshan.eclipseprojects.io/  
+   _(coap://leshan.eclipseprojects.io:5683  and coaps://leshan.eclipseprojects.io:5684)_  
+* The **bootstrap server** at https://leshan.eclipseprojects.io/bs/  
+   _(coap://leshan.eclipseprojects.io:5783  and coaps://leshan.eclipseprojects.io:5784)_  
 
 (Automatic deployment of master branch)
 

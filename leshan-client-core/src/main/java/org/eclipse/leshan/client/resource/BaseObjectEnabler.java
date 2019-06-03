@@ -36,9 +36,11 @@ import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.request.BootstrapDeleteRequest;
 import org.eclipse.leshan.core.request.BootstrapWriteRequest;
+import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.request.CreateRequest;
 import org.eclipse.leshan.core.request.DeleteRequest;
 import org.eclipse.leshan.core.request.DiscoverRequest;
+import org.eclipse.leshan.core.request.DownlinkRequest;
 import org.eclipse.leshan.core.request.ExecuteRequest;
 import org.eclipse.leshan.core.request.ObserveRequest;
 import org.eclipse.leshan.core.request.ReadRequest;
@@ -87,22 +89,14 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
     @Override
     public synchronized CreateResponse create(ServerIdentity identity, CreateRequest request) {
         if (!identity.isSystem()) {
-            // we can not create new instance on single object
-            if (objectModel != null && !objectModel.multiple) {
-                return CreateResponse.methodNotAllowed();
-            }
-
             if (id == LwM2mId.SECURITY) {
                 return CreateResponse.notFound();
             }
         }
-
-        // TODO we could do a validation of request.getObjectInstance() by comparing with resourceSpec information.
-
-        return doCreate(request);
+        return doCreate(identity, request);
     }
 
-    protected CreateResponse doCreate(CreateRequest request) {
+    protected CreateResponse doCreate(ServerIdentity identity, CreateRequest request) {
         // This should be a not implemented error, but this is not defined in the spec.
         return CreateResponse.internalServerError("not implemented");
     }
@@ -236,10 +230,10 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
             }
         }
 
-        return doDelete(request);
+        return doDelete(identity, request);
     }
 
-    protected DeleteResponse doDelete(DeleteRequest request) {
+    protected DeleteResponse doDelete(ServerIdentity identity, DeleteRequest request) {
         // This should be a not implemented error, but this is not defined in the spec.
         return DeleteResponse.internalServerError("not implemented");
     }
@@ -251,10 +245,10 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
                 return BootstrapDeleteResponse.badRequest("Device object instance is not deletable");
             }
         }
-        return doDelete(request);
+        return doDelete(identity, request);
     }
 
-    public BootstrapDeleteResponse doDelete(BootstrapDeleteRequest request) {
+    public BootstrapDeleteResponse doDelete(ServerIdentity identity, BootstrapDeleteRequest request) {
         // This should be a not implemented error, but this is not defined in the spec.
         return BootstrapDeleteResponse.internalServerError("not implemented");
     }
@@ -284,10 +278,10 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
             return ExecuteResponse.methodNotAllowed();
         }
 
-        return doExecute(request);
+        return doExecute(identity, request);
     }
 
-    protected ExecuteResponse doExecute(ExecuteRequest request) {
+    protected ExecuteResponse doExecute(ServerIdentity identity, ExecuteRequest request) {
         // This should be a not implemented error, but this is not defined in the spec.
         return ExecuteResponse.internalServerError("not implemented");
     }
@@ -311,11 +305,11 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
         if (id == LwM2mId.SECURITY) {
             return DiscoverResponse.notFound();
         }
-        return doDiscover(request);
+        return doDiscover(identity, request);
 
     }
 
-    protected DiscoverResponse doDiscover(DiscoverRequest request) {
+    protected DiscoverResponse doDiscover(ServerIdentity identity, DiscoverRequest request) {
 
         LwM2mPath path = request.getPath();
         if (path.isObject()) {
@@ -386,5 +380,10 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
 
     public NotifySender getNotifySender() {
         return notifySender;
+    }
+
+    @Override
+    public ContentFormat getDefaultEncodingFormat(DownlinkRequest<?> request) {
+        return ContentFormat.DEFAULT;
     }
 }

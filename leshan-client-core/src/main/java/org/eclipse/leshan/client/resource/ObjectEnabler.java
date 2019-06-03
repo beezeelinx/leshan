@@ -25,19 +25,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.eclipse.leshan.LwM2mId;
-import org.eclipse.leshan.ResponseCode;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.servers.ServersInfoExtractor;
 import org.eclipse.leshan.core.model.ObjectModel;
-import org.eclipse.leshan.core.model.ResourceModel;
 import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.request.BootstrapDeleteRequest;
 import org.eclipse.leshan.core.request.BootstrapWriteRequest;
+import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.request.CreateRequest;
 import org.eclipse.leshan.core.request.DeleteRequest;
+import org.eclipse.leshan.core.request.DownlinkRequest;
 import org.eclipse.leshan.core.request.ExecuteRequest;
 import org.eclipse.leshan.core.request.ObserveRequest;
 import org.eclipse.leshan.core.request.ReadRequest;
@@ -56,12 +56,14 @@ public class ObjectEnabler extends BaseObjectEnabler {
 
     private Map<Integer, LwM2mInstanceEnabler> instances;
     private LwM2mInstanceEnablerFactory instanceFactory;
+    private ContentFormat defaultContentFormat;
 
     public ObjectEnabler(int id, ObjectModel objectModel, Map<Integer, LwM2mInstanceEnabler> instances,
-            LwM2mInstanceEnablerFactory instanceFactory) {
+            LwM2mInstanceEnablerFactory instanceFactory, ContentFormat defaultContentFormat) {
         super(id, objectModel);
         this.instances = new HashMap<>(instances);
         this.instanceFactory = instanceFactory;
+        this.defaultContentFormat = defaultContentFormat;
         for (Entry<Integer, LwM2mInstanceEnabler> entry : this.instances.entrySet()) {
             addInstance(entry.getKey(), entry.getValue());
         }
@@ -98,26 +100,37 @@ public class ObjectEnabler extends BaseObjectEnabler {
     }
 
     @Override
-    protected CreateResponse doCreate(CreateRequest request) {
-        Integer instanceId = request.getInstanceId();
-        if (instanceId == null) {
-            // the client is in charge to generate the id of the new instance
-            if (instances.isEmpty()) {
+    protected CreateResponse doCreate(ServerIdentity identity, CreateRequest request) {
+        Integer instanceId = request.getInstanceId(); // instanceId CAN be NULL
+
+        // check instance id is valid
+        if (instanceId != null) {
+            if (instances.containsKey(instanceId)) {
+                return CreateResponse.badRequest("Target already exists");
+            }
+            if (!getObjectModel().multiple && instanceId != 0) {
+                return CreateResponse.badRequest("id must be 0 for single instance");
+            }
+        } else {
+            // default 0 instance id for single instance object
+            if (!getObjectModel().multiple) {
                 instanceId = 0;
-            } else {
-                instanceId = Collections.max(instances.keySet()) + 1;
             }
         }
 
-        LwM2mInstanceEnabler newInstance = instanceFactory.create(getObjectModel());
+        // create the new instance
+        LwM2mInstanceEnabler newInstance = instanceFactory.create(getObjectModel(), instanceId, instances.keySet());
 
+        // add/write resource
         for (LwM2mResource resource : request.getResources()) {
-            newInstance.write(resource.getId(), resource);
+            newInstance.write(identity, resource.getId(), resource);
         }
-        instances.put(instanceId, newInstance);
-        listenInstance(newInstance, instanceId);
 
-        return CreateResponse.success(new LwM2mPath(request.getPath().getObjectId(), instanceId).toString());
+        // add new instance to this object
+        instances.put(newInstance.getId(), newInstance);
+        listenInstance(newInstance, newInstance.getId());
+
+        return CreateResponse.success(new LwM2mPath(request.getPath().getObjectId(), newInstance.getId()).toString());
     }
 
     @Override
@@ -127,8 +140,11 @@ public class ObjectEnabler extends BaseObjectEnabler {
         // Manage Object case
         if (path.isObject()) {
             List<LwM2mObjectInstance> lwM2mObjectInstances = new ArrayList<>();
-            for (Entry<Integer, LwM2mInstanceEnabler> entry : instances.entrySet()) {
-                lwM2mObjectInstances.add(getLwM2mObjectInstance(entry.getKey(), entry.getValue(), identity, false));
+            for (LwM2mInstanceEnabler instance : instances.values()) {
+                ReadResponse response = instance.read(identity);
+                if (response.isSuccess()) {
+                    lwM2mObjectInstances.add((LwM2mObjectInstance) response.getContent());
+                }
             }
             return ReadResponse.success(new LwM2mObject(getId(), lwM2mObjectInstances));
         }
@@ -139,11 +155,11 @@ public class ObjectEnabler extends BaseObjectEnabler {
             return ReadResponse.notFound();
 
         if (path.getResourceId() == null) {
-            return ReadResponse.success(getLwM2mObjectInstance(path.getObjectInstanceId(), instance, identity, false));
+            return instance.read(identity);
         }
 
         // Manage Resource case
-        return instance.read(path.getResourceId());
+        return instance.read(identity, path.getResourceId());
     }
 
     @Override
@@ -153,8 +169,11 @@ public class ObjectEnabler extends BaseObjectEnabler {
         // Manage Object case
         if (path.isObject()) {
             List<LwM2mObjectInstance> lwM2mObjectInstances = new ArrayList<>();
-            for (Entry<Integer, LwM2mInstanceEnabler> entry : instances.entrySet()) {
-                lwM2mObjectInstances.add(getLwM2mObjectInstance(entry.getKey(), entry.getValue(), identity, true));
+            for (LwM2mInstanceEnabler instance : instances.values()) {
+                ReadResponse response = instance.observe(identity);
+                if (response.isSuccess()) {
+                    lwM2mObjectInstances.add((LwM2mObjectInstance) response.getContent());
+                }
             }
             return ObserveResponse.success(new LwM2mObject(getId(), lwM2mObjectInstances));
         }
@@ -165,32 +184,11 @@ public class ObjectEnabler extends BaseObjectEnabler {
             return ObserveResponse.notFound();
 
         if (path.getResourceId() == null) {
-            return ObserveResponse
-                    .success(getLwM2mObjectInstance(path.getObjectInstanceId(), instance, identity, true));
+            return instance.observe(identity);
         }
 
         // Manage Resource case
-        return instance.observe(path.getResourceId());
-    }
-
-    LwM2mObjectInstance getLwM2mObjectInstance(int instanceid, LwM2mInstanceEnabler instance, ServerIdentity identity,
-            boolean observe) {
-        List<LwM2mResource> resources = new ArrayList<>();
-        for (ResourceModel resourceModel : getObjectModel().resources.values()) {
-            // check, if internal request (SYSTEM) or readable
-            if (identity.isSystem() || resourceModel.operations.isReadable()) {
-                if (observe) {
-                    ObserveResponse response = instance.observe(resourceModel.id);
-                    if (response.getCode() == ResponseCode.CONTENT && response.getContent() instanceof LwM2mResource)
-                        resources.add((LwM2mResource) response.getContent());
-                } else {
-                    ReadResponse response = instance.read(resourceModel.id);
-                    if (response.getCode() == ResponseCode.CONTENT && response.getContent() instanceof LwM2mResource)
-                        resources.add((LwM2mResource) response.getContent());
-                }
-            }
-        }
-        return new LwM2mObjectInstance(instanceid, resources);
+        return instance.observe(identity, path.getResourceId());
     }
 
     @Override
@@ -203,31 +201,11 @@ public class ObjectEnabler extends BaseObjectEnabler {
             return WriteResponse.notFound();
 
         if (path.isObjectInstance()) {
-            // instance write
-            Map<Integer, LwM2mResource> writeResources = ((LwM2mObjectInstance) request.getNode()).getResources();
-            if (request.isReplaceRequest()) {
-                // REPLACE
-                writeResources = new HashMap<>(writeResources); // make them modifiable
-                for (ResourceModel resourceModel : getObjectModel().resources.values()) {
-                    if (!identity.isLwm2mServer() || resourceModel.operations.isWritable()) {
-                        LwM2mResource writeResource = writeResources.remove(resourceModel.id);
-                        if (null != writeResource) {
-                            instance.write(resourceModel.id, writeResource);
-                        } else {
-                            instance.reset(resourceModel.id);
-                        }
-                    }
-                }
-            }
-            // UPDATE and resources currently not in the model
-            for (LwM2mResource resource : writeResources.values()) {
-                instance.write(resource.getId(), resource);
-            }
-            return WriteResponse.success();
+            return instance.write(identity, request.isReplaceRequest(), (LwM2mObjectInstance) request.getNode());
         }
 
         // Manage Resource case
-        return instance.write(path.getResourceId(), (LwM2mResource) request.getNode());
+        return instance.write(identity, path.getResourceId(), (LwM2mResource) request.getNode());
     }
 
     @Override
@@ -239,7 +217,7 @@ public class ObjectEnabler extends BaseObjectEnabler {
             for (LwM2mObjectInstance instanceNode : ((LwM2mObject) request.getNode()).getInstances().values()) {
                 LwM2mInstanceEnabler instanceEnabler = instances.get(instanceNode.getId());
                 if (instanceEnabler == null) {
-                    doCreate(new CreateRequest(path.getObjectId(), instanceNode));
+                    doCreate(identity, new CreateRequest(path.getObjectId(), instanceNode));
                 } else {
                     doWrite(identity, new WriteRequest(Mode.REPLACE, path.getObjectId(), path.getObjectInstanceId(),
                             instanceNode.getResources().values()));
@@ -253,7 +231,7 @@ public class ObjectEnabler extends BaseObjectEnabler {
             LwM2mObjectInstance instanceNode = (LwM2mObjectInstance) request.getNode();
             LwM2mInstanceEnabler instanceEnabler = instances.get(path.getObjectInstanceId());
             if (instanceEnabler == null) {
-                doCreate(new CreateRequest(path.getObjectId(), instanceNode));
+                doCreate(identity, new CreateRequest(path.getObjectId(), instanceNode));
             } else {
                 doWrite(identity, new WriteRequest(Mode.REPLACE, request.getContentFormat(), path.getObjectId(),
                         path.getObjectInstanceId(), instanceNode.getResources().values()));
@@ -265,34 +243,36 @@ public class ObjectEnabler extends BaseObjectEnabler {
         LwM2mResource resource = (LwM2mResource) request.getNode();
         LwM2mInstanceEnabler instanceEnabler = instances.get(path.getObjectInstanceId());
         if (instanceEnabler == null) {
-            doCreate(new CreateRequest(path.getObjectId(),
+            doCreate(identity, new CreateRequest(path.getObjectId(),
                     new LwM2mObjectInstance(path.getObjectInstanceId(), resource)));
         } else {
-            instanceEnabler.write(path.getResourceId(), resource);
+            instanceEnabler.write(identity, path.getResourceId(), resource);
         }
         return BootstrapWriteResponse.success();
     }
 
     @Override
-    protected ExecuteResponse doExecute(ExecuteRequest request) {
+    protected ExecuteResponse doExecute(ServerIdentity identity, ExecuteRequest request) {
         LwM2mPath path = request.getPath();
         LwM2mInstanceEnabler instance = instances.get(path.getObjectInstanceId());
         if (instance == null) {
             return ExecuteResponse.notFound();
         }
-        return instance.execute(path.getResourceId(), request.getParameters());
+        return instance.execute(identity, path.getResourceId(), request.getParameters());
     }
 
     @Override
-    protected DeleteResponse doDelete(DeleteRequest request) {
-        if (null != instances.remove(request.getPath().getObjectInstanceId())) {
+    protected DeleteResponse doDelete(ServerIdentity identity, DeleteRequest request) {
+        LwM2mInstanceEnabler deletedInstance = instances.remove(request.getPath().getObjectInstanceId());
+        if (deletedInstance != null) {
+            deletedInstance.onDelete(identity);
             return DeleteResponse.success();
         }
         return DeleteResponse.notFound();
     }
 
     @Override
-    public BootstrapDeleteResponse doDelete(BootstrapDeleteRequest request) {
+    public BootstrapDeleteResponse doDelete(ServerIdentity identity, BootstrapDeleteRequest request) {
         if (request.getPath().isRoot() || request.getPath().isObject()) {
             if (id == LwM2mId.SECURITY) {
                 // For security object, we clean everything except bootstrap Server account.
@@ -346,4 +326,8 @@ public class ObjectEnabler extends BaseObjectEnabler {
         });
     }
 
+    @Override
+    public ContentFormat getDefaultEncodingFormat(DownlinkRequest<?> request) {
+        return defaultContentFormat;
+    }
 }

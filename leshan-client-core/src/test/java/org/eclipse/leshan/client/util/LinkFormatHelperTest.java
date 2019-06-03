@@ -24,13 +24,14 @@ import java.util.Map;
 
 import org.eclipse.leshan.Link;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
+import org.eclipse.leshan.client.resource.BaseInstanceEnablerFactory;
 import org.eclipse.leshan.client.resource.LwM2mInstanceEnabler;
-import org.eclipse.leshan.client.resource.LwM2mInstanceEnablerFactory;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.ObjectEnabler;
-import org.eclipse.leshan.client.resource.SimpleInstanceEnabler;
+import org.eclipse.leshan.client.resource.DummyInstanceEnabler;
 import org.eclipse.leshan.core.model.ObjectLoader;
 import org.eclipse.leshan.core.model.ObjectModel;
+import org.eclipse.leshan.core.request.ContentFormat;
 import org.junit.Test;
 
 public class LinkFormatHelperTest {
@@ -106,7 +107,7 @@ public class LinkFormatHelperTest {
 
         Map<Integer, LwM2mInstanceEnabler> instancesMap = new HashMap<>();
         instancesMap.put(0, new BaseInstanceEnabler());
-        objectEnablers.add(new ObjectEnabler(6, getObjectModel(6), instancesMap, null));
+        objectEnablers.add(new ObjectEnabler(6, getObjectModel(6), instancesMap, null, ContentFormat.DEFAULT));
 
         Link[] links = LinkFormatHelper.getClientDescription(objectEnablers, null);
         String strLinks = Link.serialize(links);
@@ -121,7 +122,8 @@ public class LinkFormatHelperTest {
         Map<Integer, LwM2mInstanceEnabler> instancesMap = new HashMap<>();
         instancesMap.put(0, new BaseInstanceEnabler());
         instancesMap.put(1, new BaseInstanceEnabler());
-        objectEnablers.add(new ObjectEnabler(6, getVersionedObjectModel(6, "2.0"), instancesMap, null));
+        objectEnablers.add(
+                new ObjectEnabler(6, getVersionedObjectModel(6, "2.0"), instancesMap, null, ContentFormat.DEFAULT));
 
         Link[] links = LinkFormatHelper.getClientDescription(objectEnablers, null);
         String strLinks = Link.serialize(links);
@@ -134,7 +136,8 @@ public class LinkFormatHelperTest {
         List<LwM2mObjectEnabler> objectEnablers = new ArrayList<>();
 
         Map<Integer, LwM2mInstanceEnabler> instancesMap = new HashMap<>();
-        objectEnablers.add(new ObjectEnabler(6, getVersionedObjectModel(6, "2.0"), instancesMap, null));
+        objectEnablers.add(
+                new ObjectEnabler(6, getVersionedObjectModel(6, "2.0"), instancesMap, null, ContentFormat.DEFAULT));
 
         Link[] links = LinkFormatHelper.getClientDescription(objectEnablers, null);
         String strLinks = Link.serialize(links);
@@ -169,20 +172,21 @@ public class LinkFormatHelperTest {
      */
     private LwM2mObjectEnabler createObjectEnabler(ObjectModel objectModel) {
         // create factory
-        LwM2mInstanceEnablerFactory factory = new LwM2mInstanceEnablerFactory() {
+        BaseInstanceEnablerFactory factory = new BaseInstanceEnablerFactory() {
             @Override
-            public LwM2mInstanceEnabler create(ObjectModel model) {
-                SimpleInstanceEnabler simpleInstanceEnabler = new SimpleInstanceEnabler();
-                simpleInstanceEnabler.setObjectModel(model);
-                return simpleInstanceEnabler;
+            public LwM2mInstanceEnabler create() {
+                return new DummyInstanceEnabler();
             }
         };
 
         // create first instance
         Map<Integer, LwM2mInstanceEnabler> instances = new HashMap<>();
-        instances.put(0, factory.create(objectModel));
+        LwM2mInstanceEnabler instance = factory.create();
+        instance.setId(0);
+        instance.setModel(objectModel);
+        instances.put(0, instance);
 
         // create objectEnabler
-        return new ObjectEnabler(objectModel.id, objectModel, instances, factory);
+        return new ObjectEnabler(objectModel.id, objectModel, instances, factory, ContentFormat.TLV);
     }
 }

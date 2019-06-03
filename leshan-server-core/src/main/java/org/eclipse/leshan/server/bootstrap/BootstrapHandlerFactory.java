@@ -15,11 +15,7 @@
  *******************************************************************************/
 package org.eclipse.leshan.server.bootstrap;
 
-import org.eclipse.leshan.core.request.BootstrapRequest;
-import org.eclipse.leshan.core.request.Identity;
-import org.eclipse.leshan.core.response.BootstrapResponse;
-
-public interface BootstrapHandler {
-
-    BootstrapResponse bootstrap(Identity sender, BootstrapRequest request);
+public interface BootstrapHandlerFactory {
+    BootstrapHandler create(BootstrapStore store, LwM2mBootstrapRequestSender sender,
+            BootstrapSessionManager sessionManager);
 }
