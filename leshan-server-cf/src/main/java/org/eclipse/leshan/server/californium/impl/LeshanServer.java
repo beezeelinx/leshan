@@ -309,45 +309,12 @@ public class LeshanServer implements LwM2mServer {
     @Override
     public <T extends LwM2mResponse> T send(Registration destination, DownlinkRequest<T> request)
             throws InterruptedException {
-        long timeout = DEFAULT_TIMEOUT;
-        if (presenceService != null && destination.usesQueueMode() && !presenceService.isClientAwake(destination)) {
-            // If the client uses Q-Mode, wait for the client to exit queue mode
-            long startTime = System.currentTimeMillis();
-            long endTime = System.currentTimeMillis() + timeout;
-            while (!presenceService.isClientAwake(destination) && System.currentTimeMillis() < endTime) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                }
-            }
-            timeout = (timeout - (System.currentTimeMillis() - startTime));
-            // Set a minimum timeout (it could end up being a negative value)
-            if (timeout <= 1000) {
-                timeout = 1000;
-            }
-        }
         return requestSender.send(destination, request, DEFAULT_TIMEOUT);
     }
 
     @Override
     public <T extends LwM2mResponse> T send(Registration destination, DownlinkRequest<T> request, long timeout)
             throws InterruptedException {
-        if (presenceService != null && destination.usesQueueMode() && !presenceService.isClientAwake(destination)) {
-            // If the client uses Q-Mode, wait for the client to exit queue mode
-            long startTime = System.currentTimeMillis();
-            long endTime = System.currentTimeMillis() + timeout;
-            while (!presenceService.isClientAwake(destination) && System.currentTimeMillis() < endTime) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                }
-            }
-            timeout = (timeout - (System.currentTimeMillis() - startTime));
-            // Set a minimum timeout (it could end up being a negative value)
-            if (timeout <= 1000) {
-                timeout = 1000;
-            }
-        }
         return requestSender.send(destination, request, timeout);
     }
 
