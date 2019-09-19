@@ -69,6 +69,7 @@ import org.eclipse.leshan.server.demo.servlet.SecurityServlet;
 import org.eclipse.leshan.server.impl.FileSecurityStore;
 import org.eclipse.leshan.server.model.LwM2mModelProvider;
 import org.eclipse.leshan.server.model.StaticModelProvider;
+import org.eclipse.leshan.server.queue.StaticClientAwakeTimeProvider;
 import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.util.SecurityUtil;
 import org.slf4j.Logger;
@@ -374,6 +375,9 @@ public class LeshanServerDemo {
             builder.setRegistrationStore(new RedisRegistrationStore(jedis));
         }
         builder.setSecurityStore(securityStore);
+        
+        // Default awake timeout is 20s
+        builder.setClientAwakeTimeProvider(new StaticClientAwakeTimeProvider(20000));
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();
