@@ -377,7 +377,7 @@ public class LeshanServerDemo {
         builder.setSecurityStore(securityStore);
         
         // Default awake timeout is 20s
-        builder.setClientAwakeTimeProvider(new StaticClientAwakeTimeProvider(20000));
+        builder.setClientAwakeTimeProvider(new StaticClientAwakeTimeProvider(30000));
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();
